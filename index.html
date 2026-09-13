@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#24120d">
+  <meta name="description" content="Three curious challenges inside a cozy magical shop.">
+  <title>The Magical Miscellany</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#app">Skip to the game</a>
+  <div class="shop-shell">
+    <header class="site-header">
+      <a class="brand" href="#shop" aria-label="The Magical Miscellany home">
+        <span class="brand-kicker">THE</span>
+        <span>The Magical Miscellany</span>
+      </a>
+      <span class="header-charm" aria-hidden="true">✦ ☾ ✦</span>
+    </header>
+    <main id="app" tabindex="-1"></main>
+    <footer>Curious things for curious minds <span aria-hidden="true">✦</span></footer>
+  </div>
+  <div id="reveal-overlay" class="reveal-overlay" hidden aria-live="assertive">
+    <div class="reveal-card">
+      <span id="reveal-kind"></span>
+      <strong id="reveal-id"></strong>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
