@@ -29,9 +29,11 @@ const overlay = document.querySelector("#reveal-overlay");
 const revealKind = document.querySelector("#reveal-kind");
 const revealId = document.querySelector("#reveal-id");
 let overlayTimer;
+let overlayAfterReveal;
 let crystalRound;
 let potionRound;
 let creatureRound;
+let previousCrystalTargetIndex = -1;
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -54,14 +56,30 @@ function shuffled(items) {
 
 function showReveal(kind, id, afterReveal) {
   clearTimeout(overlayTimer);
+  overlayAfterReveal = afterReveal;
   revealKind.textContent = kind;
   revealId.textContent = `#${id}`;
   overlay.hidden = false;
-  overlayTimer = setTimeout(() => {
-    overlay.hidden = true;
-    afterReveal?.();
-  }, 1700);
+  overlay.focus({ preventScroll: true });
+  overlayTimer = setTimeout(hideReveal, 1700);
 }
+
+function hideReveal() {
+  if (overlay.hidden) return;
+  clearTimeout(overlayTimer);
+  overlay.hidden = true;
+  const afterReveal = overlayAfterReveal;
+  overlayAfterReveal = null;
+  afterReveal?.();
+}
+
+overlay.addEventListener("click", hideReveal);
+overlay.addEventListener("keydown", event => {
+  if (["Enter", " ", "Escape"].includes(event.key)) {
+    event.preventDefault();
+    hideReveal();
+  }
+});
 
 function headerMarkup(title, countLabel, count) {
   return `
@@ -119,7 +137,10 @@ function renderShop() {
 function newCrystalRound() {
   const [min, max] = GAME_DATA.crystalRange;
   const ids = shuffled(uniqueNumbers(18, min, max));
-  crystalRound = { ids, target: ids[randomInt(0, ids.length - 1)], checks: 0, busy: false, complete: false };
+  let targetIndex = randomInt(0, ids.length - 1);
+  while (targetIndex === previousCrystalTargetIndex) targetIndex = randomInt(0, ids.length - 1);
+  previousCrystalTargetIndex = targetIndex;
+  crystalRound = { ids, target: ids[targetIndex], targetIndex, checks: 0, busy: false, complete: false };
   renderCrystals();
 }
 
@@ -225,7 +246,7 @@ function inspectPotion(event) {
 function newCreatureRound() {
   let names = shuffled(GAME_DATA.creatureNames);
   while (names.every((name, index) => name === GAME_DATA.creatureNames[index])) names = shuffled(names);
-  creatureRound = { names, moves: 0, complete: false, selected: null, drag: null, suppressTap: false };
+  creatureRound = { names, moves: 0, complete: false, drag: null };
   renderCreatures();
 }
 
@@ -241,7 +262,7 @@ function renderCreatures() {
         ${creatureRound.names.map(creatureMarkup).join("")}
       </div>
     </div>
-    <p class="tap-hint">Drag a card into place, or tap one card and then another.</p>
+    <p class="drag-hint">Drag a card into place. Keyboard users can use the arrow keys.</p>
     <div id="result"></div>`;
   const row = document.querySelector(".creature-row");
   row.addEventListener("pointerdown", creaturePointerDown);
@@ -249,12 +270,11 @@ function renderCreatures() {
   row.addEventListener("pointerup", creaturePointerUp);
   row.addEventListener("pointercancel", creaturePointerUp);
   row.addEventListener("keydown", creatureKeyDown);
-  row.addEventListener("click", creatureTap);
 }
 
 function creatureMarkup(name) {
   const [emoji, light, dark] = GAME_DATA.creatures[name];
-  return `<button class="creature-card" type="button" data-name="${name}" style="--creature-light:${light};--creature-dark:${dark}" aria-label="${name}. Drag to move, or use arrow keys." aria-pressed="false"><span class="creature-art" aria-hidden="true">${emoji}</span><span class="creature-name">${name}</span></button>`;
+  return `<button class="creature-card" type="button" data-name="${name}" style="--creature-light:${light};--creature-dark:${dark}" aria-label="${name}. Drag to move, or use arrow keys."><span class="creature-art" aria-hidden="true">${emoji}</span><span class="creature-name">${name}</span></button>`;
 }
 
 function creaturePointerDown(event) {
@@ -270,6 +290,8 @@ function creaturePointerMove(event) {
   if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 10) {
     drag.moved = true;
     drag.card.classList.add("dragging");
+    drag.card.style.transform = `translate3d(${event.clientX - drag.startX}px, ${event.clientY - drag.startY}px, 0) scale(1.03)`;
+    drag.card.style.zIndex = "10";
   }
 }
 
@@ -277,29 +299,16 @@ function creaturePointerUp(event) {
   const drag = creatureRound.drag;
   if (!drag) return;
   drag.card.classList.remove("dragging");
+  drag.card.style.transform = "";
+  drag.card.style.zIndex = "";
   if (drag.moved) {
     event.preventDefault();
-    creatureRound.suppressTap = true;
-    setTimeout(() => { creatureRound.suppressTap = false; }, 0);
+    drag.card.style.pointerEvents = "none";
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".creature-card");
+    drag.card.style.pointerEvents = "";
     if (target && target !== drag.card) moveCreature(drag.card.dataset.name, target.dataset.name);
   }
   creatureRound.drag = null;
-}
-
-function creatureTap(event) {
-  if (creatureRound.suppressTap || creatureRound.drag?.moved || creatureRound.complete) return;
-  const card = event.target.closest(".creature-card");
-  if (!card) return;
-  if (!creatureRound.selected) {
-    creatureRound.selected = card.dataset.name;
-    card.setAttribute("aria-pressed", "true");
-  } else if (creatureRound.selected === card.dataset.name) {
-    creatureRound.selected = null;
-    card.setAttribute("aria-pressed", "false");
-  } else {
-    moveCreature(creatureRound.selected, card.dataset.name);
-  }
 }
 
 function creatureKeyDown(event) {
@@ -322,7 +331,6 @@ function moveCreature(movingName, targetName, placeAfter = false) {
   to = creatureRound.names.indexOf(targetName) + (placeAfter ? 1 : 0);
   creatureRound.names.splice(to, 0, moving);
   creatureRound.moves += 1;
-  creatureRound.selected = null;
   const complete = creatureRound.names.every((name, index) => name === GAME_DATA.creatureNames[index]);
   creatureRound.complete = complete;
   renderCreatures();
@@ -337,6 +345,7 @@ function moveCreature(movingName, targetName, placeAfter = false) {
 
 function route() {
   clearTimeout(overlayTimer);
+  overlayAfterReveal = null;
   overlay.hidden = true;
   const page = location.hash.replace("#", "") || "shop";
   if (page === "crystals") newCrystalRound();

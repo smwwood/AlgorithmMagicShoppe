@@ -154,22 +154,22 @@ h1 { font-size: clamp(2.5rem, 8vw, 5rem); line-height: .93; margin: 0; }
 .creature-scroller { overflow-x: auto; padding: 12px 5px 20px; }
 .creature-row { min-width: 980px; display: flex; gap: 10px; }
 .creature-card { width: 113px; flex: 0 0 113px; min-height: 205px; padding: 8px; color: var(--ink); background: linear-gradient(#f7e7bd, #dfbb7e); border: 3px solid #865128; border-radius: 9px; box-shadow: 0 7px 0 #4b2818, var(--shadow); cursor: grab; touch-action: none; user-select: none; transition: transform .14s, opacity .14s; }
-.creature-card[aria-pressed="true"] { outline: 4px solid #65dbe8; transform: translateY(-5px); }
-.creature-card.dragging { opacity: .5; transform: scale(.96); }
+.creature-card.dragging { cursor: grabbing; opacity: .92; filter: brightness(1.08); box-shadow: 0 12px 0 #4b2818, 0 20px 38px rgba(0,0,0,.58); transition: none; }
 .creature-art { height: 140px; display: grid; place-items: center; font-size: 4.7rem; border-radius: 7px; background: radial-gradient(circle at 50% 35%, var(--creature-light), var(--creature-dark)); }
 .creature-name { display: block; margin-top: 12px; font: 1.1rem var(--display); }
-.tap-hint { text-align: center; color: #d9b47d; font-size: .83rem; margin: 4px 0 0; }
+.drag-hint { text-align: center; color: #d9b47d; font-size: .83rem; margin: 4px 0 0; }
 
 .result-panel { max-width: 650px; margin: 28px auto 0; padding: 26px; text-align: center; }
 .result-panel h3 { margin: 0 0 8px; font-size: 2.2rem; }
 .result-panel p { margin: 8px 0; font-size: 1.05rem; }
 .result-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px; margin-top: 22px; }
 
-.reveal-overlay { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 7, 18, .72); backdrop-filter: blur(3px); }
+.reveal-overlay { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 7, 18, .72); backdrop-filter: blur(3px); cursor: pointer; }
 .reveal-overlay[hidden] { display: none; }
 .reveal-card { width: min(410px, 92vw); padding: 38px 24px; text-align: center; color: #2b1737; background: linear-gradient(135deg, #fff2c9, #e7c183); border: 5px solid #c68d3f; outline: 3px solid #72451e; border-radius: 18px; box-shadow: 0 0 42px rgba(142, 102, 255, .76), var(--shadow); animation: reveal-in .2s ease-out; }
 .reveal-card span { display: block; letter-spacing: .18em; font-size: 1rem; font-weight: 800; }
 .reveal-card strong { display: block; margin-top: 3px; font: clamp(3.5rem, 17vw, 6.8rem)/.95 var(--display); }
+.reveal-card small { display: block; margin-top: 18px; font-size: .82rem; font-weight: 800; letter-spacing: .04em; opacity: .72; }
 @keyframes reveal-in { from { transform: scale(.84); opacity: 0; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
