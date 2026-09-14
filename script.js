@@ -297,33 +297,88 @@ function creatureMarkup(name) {
 function creaturePointerDown(event) {
   const card = event.target.closest(".creature-card");
   if (!card || creatureRound.complete) return;
-  creatureRound.drag = { card, startX: event.clientX, startY: event.clientY, moved: false };
+  const scroller = card.closest(".creature-scroller");
+  creatureRound.drag = {
+    card,
+    scroller,
+    startX: event.clientX,
+    startY: event.clientY,
+    startScrollLeft: scroller.scrollLeft,
+    latestX: event.clientX,
+    latestY: event.clientY,
+    autoScrollDirection: 0,
+    autoScrollFrame: null,
+    moved: false
+  };
   card.setPointerCapture(event.pointerId);
 }
 
 function creaturePointerMove(event) {
   const drag = creatureRound.drag;
   if (!drag) return;
+  drag.latestX = event.clientX;
+  drag.latestY = event.clientY;
   if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 10) {
     drag.moved = true;
     drag.card.classList.add("dragging");
-    drag.card.style.transform = `translate3d(${event.clientX - drag.startX}px, ${event.clientY - drag.startY}px, 0) scale(1.03)`;
+    const scrollerBounds = drag.scroller.getBoundingClientRect();
+    const edgeSize = Math.min(72, scrollerBounds.width * 0.2);
+    drag.autoScrollDirection = event.clientX < scrollerBounds.left + edgeSize
+      ? -1
+      : event.clientX > scrollerBounds.right - edgeSize ? 1 : 0;
+    if (drag.autoScrollDirection && !drag.autoScrollFrame) {
+      drag.autoScrollFrame = requestAnimationFrame(autoScrollCreatureRow);
+    } else if (!drag.autoScrollDirection && drag.autoScrollFrame) {
+      cancelAnimationFrame(drag.autoScrollFrame);
+      drag.autoScrollFrame = null;
+    }
+
+    const scrollChange = drag.scroller.scrollLeft - drag.startScrollLeft;
+    const translateX = event.clientX - drag.startX + scrollChange;
+    const translateY = event.clientY - drag.startY;
+    drag.card.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(1.03)`;
     drag.card.style.zIndex = "10";
   }
+}
+
+function autoScrollCreatureRow() {
+  const drag = creatureRound.drag;
+  if (!drag) return;
+  if (!drag.autoScrollDirection) {
+    drag.autoScrollFrame = null;
+    return;
+  }
+
+  drag.scroller.scrollLeft += drag.autoScrollDirection * 8;
+  const scrollChange = drag.scroller.scrollLeft - drag.startScrollLeft;
+  const translateX = drag.latestX - drag.startX + scrollChange;
+  const translateY = drag.latestY - drag.startY;
+  drag.card.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(1.03)`;
+  drag.autoScrollFrame = requestAnimationFrame(autoScrollCreatureRow);
 }
 
 function creaturePointerUp(event) {
   const drag = creatureRound.drag;
   if (!drag) return;
+  if (drag.autoScrollFrame) cancelAnimationFrame(drag.autoScrollFrame);
+  let insertionIndex = null;
+  const dropZone = drag.scroller.getBoundingClientRect();
+  const isInsideRow = event.clientY >= dropZone.top - 24 && event.clientY <= dropZone.bottom + 24;
+  if (event.type === "pointerup" && drag.moved && isInsideRow) {
+    const otherCards = [...document.querySelectorAll(".creature-card")].filter(card => card !== drag.card);
+    insertionIndex = otherCards.findIndex(card => {
+      const bounds = card.getBoundingClientRect();
+      return event.clientX < bounds.left + bounds.width / 2;
+    });
+    if (insertionIndex === -1) insertionIndex = otherCards.length;
+  }
+
   drag.card.classList.remove("dragging");
   drag.card.style.transform = "";
   drag.card.style.zIndex = "";
-  if (drag.moved) {
+  if (insertionIndex !== null) {
     event.preventDefault();
-    drag.card.style.pointerEvents = "none";
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".creature-card");
-    drag.card.style.pointerEvents = "";
-    if (target && target !== drag.card) moveCreature(drag.card.dataset.name, target.dataset.name);
+    moveCreatureToIndex(drag.card.dataset.name, insertionIndex);
   }
   creatureRound.drag = null;
 }
@@ -335,18 +390,16 @@ function creatureKeyDown(event) {
   const from = creatureRound.names.indexOf(card.dataset.name);
   const to = event.key === "ArrowLeft" ? from - 1 : from + 1;
   if (to < 0 || to >= creatureRound.names.length) return;
-  const targetName = creatureRound.names[to];
-  moveCreature(card.dataset.name, targetName, event.key === "ArrowRight");
+  moveCreatureToIndex(card.dataset.name, to);
   document.querySelector(`[data-name="${card.dataset.name}"]`)?.focus();
 }
 
-function moveCreature(movingName, targetName, placeAfter = false) {
+function moveCreatureToIndex(movingName, insertionIndex) {
   const from = creatureRound.names.indexOf(movingName);
-  let to = creatureRound.names.indexOf(targetName);
-  if (from === -1 || to === -1 || from === to) return;
+  if (from === -1 || from === insertionIndex) return;
   const [moving] = creatureRound.names.splice(from, 1);
-  to = creatureRound.names.indexOf(targetName) + (placeAfter ? 1 : 0);
-  creatureRound.names.splice(to, 0, moving);
+  const boundedIndex = Math.max(0, Math.min(insertionIndex, creatureRound.names.length));
+  creatureRound.names.splice(boundedIndex, 0, moving);
   creatureRound.moves += 1;
   const complete = creatureRound.names.every((name, index) => name === GAME_DATA.creatureNames[index]);
   creatureRound.complete = complete;
