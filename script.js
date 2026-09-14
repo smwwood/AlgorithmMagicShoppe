@@ -45,6 +45,20 @@ function uniqueNumbers(count, min, max) {
   return [...values];
 }
 
+function skewedNumbers(count, min, max) {
+  const values = new Set();
+  const skewTowardHigh = Math.random() < 0.5;
+  const exponent = 1.7 + Math.random() * 1.6;
+
+  while (values.size < count) {
+    let position = Math.pow(Math.random(), exponent);
+    if (skewTowardHigh) position = 1 - position;
+    values.add(Math.round(min + position * (max - min)));
+  }
+
+  return [...values];
+}
+
 function shuffled(items) {
   const copy = [...items];
   for (let index = copy.length - 1; index > 0; index -= 1) {
@@ -188,8 +202,11 @@ function inspectCrystal(event) {
 }
 
 function newPotionRound() {
-  const [min, max] = GAME_DATA.potionRange;
-  const ids = uniqueNumbers(18, min, max).sort((a, b) => a - b);
+  const [catalogMin, catalogMax] = GAME_DATA.potionRange;
+  const rangeWidth = randomInt(2400, 6000);
+  const rangeMin = randomInt(catalogMin, catalogMax - rangeWidth);
+  const rangeMax = rangeMin + rangeWidth;
+  const ids = skewedNumbers(18, rangeMin, rangeMax).sort((a, b) => a - b);
   potionRound = { ids, target: ids[randomInt(0, ids.length - 1)], checks: 0, busy: false, complete: false, inspected: new Set() };
   renderPotions();
 }
